@@ -59,7 +59,7 @@ instead:
 
 ```python
 from sklearn.feature_extraction.text import CountVectorizer
-vectorizer_model = CountVectorizer(stop_words="English", ngram_range=(1, 5))
+vectorizer_model = CountVectorizer(stop_words="english", ngram_range=(1, 5))
 topic_model.update_topics(docs, vectorizer_model=vectorizer_model)
 ```
 
@@ -82,6 +82,9 @@ topic_labels = topic_model.generate_topic_labels(nr_words=3,
                                                  word_length=10,
                                                  separator=", ")
 ```
+
+!!! Tip
+    If you created [**multiple topic representations**](https://maartengr.github.io/BERTopic/getting_started/multiaspect/multiaspect.html) or aspects, you can choose one of these aspects with `aspect="Aspect1"` or whatever you named the aspect.
 
 In the above example, `1_space_nasa_orbit` would turn into `space, nasa, orbit` since we selected 3 words, no topic prefix, and the `, ` separator. We can then either change our `topic_labels` to whatever we want or directly pass them to `.set_topic_labels` so that they can be used across most visualization functions:
 

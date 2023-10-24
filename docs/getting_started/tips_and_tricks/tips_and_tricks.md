@@ -48,7 +48,7 @@ topic_model = BERTopic(representation_model=representation_model)
 ## **Diversify topic representation**
 After having calculated our top *n* words per topic there might be many words that essentially 
 mean the same thing. As a little bonus, we can use `bertopic.representation.MaximalMarginalRelevance` in BERTopic to 
-diversity words in each topic such that we limit the number of duplicate words we find in each topic. 
+diversify words in each topic such that we limit the number of duplicate words we find in each topic. 
 This is done using an algorithm called Maximal Marginal Relevance which compares word embeddings 
 with the topic embedding. 
 
@@ -185,12 +185,10 @@ embeddings = normalize(embeddings)
 
     ```bash
     !pip install bertopic
-    !pip install cudf-cu11 dask-cudf-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
-    !pip install cuml-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
-    !pip install cugraph-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
-    !pip uninstall cupy-cuda115 -y
-    !pip uninstall cupy-cuda11x -y
-    !pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64
+    !pip install cudf-cu11 dask-cudf-cu11 --extra-index-url=https://pypi.nvidia.com
+    !pip install cuml-cu11 --extra-index-url=https://pypi.nvidia.com
+    !pip install cugraph-cu11 --extra-index-url=https://pypi.nvidia.com
+    !pip install --upgrade cupy-cuda11x -f https://pip.cupy.dev/aarch64
     ```
 
 
@@ -335,10 +333,10 @@ To find the matching topic, we extract the most similar topic in the `sim_matrix
 
 It seems to be working as, for example, `trein` is a translation of `train` and `sporen` a translation of `tracks`! You can do this for every single topic to find out which topic in the `en_model` might belong to a model in the `nl_model`. 
 
-## **Multi-modal data**
+## **Multimodal data**
 [Concept](https://github.com/MaartenGr/Concept) is a variation 
-of BERTopic for multi-modal data, such as images with captions. Although we can use that 
-package for multi-modal data, we can perform a small trick with BERTopic to have a similar feature. 
+of BERTopic for multimodal data, such as images with captions. Although we can use that 
+package for multimodal data, we can perform a small trick with BERTopic to have a similar feature. 
 
 BERTopic is a relatively modular approach that attempts to isolate steps from one another. This means, 
 for example, that you can use k-Means instead of HDBSCAN or PCA instead of UMAP as it does not make 

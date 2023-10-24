@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from typing import Callable, List
+from typing import Callable, List, Union
 from scipy.sparse import csr_matrix
 from scipy.cluster import hierarchy as sch
 from scipy.spatial.distance import squareform
@@ -9,12 +9,13 @@ from sklearn.metrics.pairwise import cosine_similarity
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 
+from bertopic._utils import validate_distance_matrix
 
 def visualize_hierarchy(topic_model,
                         orientation: str = "left",
                         topics: List[int] = None,
                         top_n_topics: int = None,
-                        custom_labels: bool = False,
+                        custom_labels: Union[bool, str] = False,
                         title: str = "<b>Hierarchical Clustering</b>",
                         width: int = 1000,
                         height: int = 600,
@@ -34,8 +35,9 @@ def visualize_hierarchy(topic_model,
                      Either 'left' or 'bottom'
         topics: A selection of topics to visualize
         top_n_topics: Only select the top n most frequent topics
-        custom_labels: Whether to use custom topic labels that were defined using 
+        custom_labels: If bool, whether to use custom topic labels that were defined using 
                        `topic_model.set_topic_labels`.
+                       If `str`, it uses labels from other aspects, e.g., "Aspect1".
                        NOTE: Custom labels are only generated for the original 
                        un-merged topics.
         title: Title of the plot.
@@ -50,7 +52,12 @@ def visualize_hierarchy(topic_model,
                           NOTE: Make sure to use the same `linkage_function` as used
                           in `topic_model.hierarchical_topics`.
         distance_function: The distance function to use on the c-TF-IDF matrix. Default is:
-                           `lambda x: 1 - cosine_similarity(x)`
+                           `lambda x: 1 - cosine_similarity(x)`.
+                            You can pass any function that returns either a square matrix of 
+                            shape (n_samples, n_samples) with zeros on the diagonal and 
+                            non-negative values or condensed distance matrix of shape 
+                            (n_samples * (n_samples - 1) / 2,) containing the upper 
+                            triangular of the distance matrix.
                            NOTE: Make sure to use the same `distance_function` as used
                            in `topic_model.hierarchical_topics`.
         color_threshold: Value at which the separation of clusters will be made which
@@ -108,8 +115,13 @@ def visualize_hierarchy(topic_model,
     # Select embeddings
     all_topics = sorted(list(topic_model.get_topics().keys()))
     indices = np.array([all_topics.index(topic) for topic in topics])
-    embeddings = topic_model.c_tf_idf_[indices]
 
+    # Select topic embeddings
+    if topic_model.c_tf_idf_ is not None:
+        embeddings = topic_model.c_tf_idf_[indices]
+    else:
+        embeddings = np.array(topic_model.topic_embeddings_)[indices]
+        
     # Annotations
     if hierarchical_topics is not None and len(topics) == len(freq_df.Topic.to_list()):
         annotations = _get_annotations(topic_model=topic_model,
@@ -122,17 +134,24 @@ def visualize_hierarchy(topic_model,
     else:
         annotations = None
 
+    # wrap distance function to validate input and return a condensed distance matrix
+    distance_function_viz = lambda x: validate_distance_matrix(
+        distance_function(x), embeddings.shape[0])
     # Create dendogram
     fig = ff.create_dendrogram(embeddings,
                                orientation=orientation,
-                               distfun=distance_function,
+                               distfun=distance_function_viz,
                                linkagefun=linkage_function,
                                hovertext=annotations,
                                color_threshold=color_threshold)
 
     # Create nicer labels
     axis = "yaxis" if orientation == "left" else "xaxis"
-    if topic_model.custom_labels_ is not None and custom_labels:
+    if isinstance(custom_labels, str):
+        new_labels = [[[str(x), None]] + topic_model.topic_aspects_[custom_labels][x] for x in fig.layout[axis]["ticktext"]]
+        new_labels = ["_".join([label[0] for label in labels[:4]]) for labels in new_labels]
+        new_labels = [label if len(label) < 30 else label[:27] + "..." for label in new_labels]
+    elif topic_model.custom_labels_ is not None and custom_labels:
         new_labels = [topic_model.custom_labels_[topics[int(x)] + topic_model._outliers] for x in fig.layout[axis]["ticktext"]]
     else:
         new_labels = [[[str(topics[int(x)]), None]] + topic_model.get_topic(topics[int(x)])
@@ -213,7 +232,12 @@ def _get_annotations(topic_model,
                           NOTE: Make sure to use the same `linkage_function` as used
                           in `topic_model.hierarchical_topics`.
         distance_function: The distance function to use on the c-TF-IDF matrix. Default is:
-                           `lambda x: 1 - cosine_similarity(x)`
+                           `lambda x: 1 - cosine_similarity(x)`.
+                            You can pass any function that returns either a square matrix of 
+                            shape (n_samples, n_samples) with zeros on the diagonal and 
+                            non-negative values or condensed distance matrix of shape 
+                            (n_samples * (n_samples - 1) / 2,) containing the upper 
+                            triangular of the distance matrix.
                            NOTE: Make sure to use the same `distance_function` as used
                            in `topic_model.hierarchical_topics`.
         orientation: The orientation of the figure.
@@ -230,10 +254,7 @@ def _get_annotations(topic_model,
 
     # Calculate distance
     X = distance_function(embeddings)
-
-    # Make sure it is the 1-D condensed distance matrix with zeros on the diagonal 
-    np.fill_diagonal(X, 0)
-    X = squareform(X)
+    X = validate_distance_matrix(X, embeddings.shape[0])
 
     # Calculate linkage and generate dendrogram
     Z = linkage_function(X)
@@ -256,7 +277,9 @@ def _get_annotations(topic_model,
         scnd_topic = topic_vals[trace[2]]
 
         if len(fst_topic) == 1:
-            if topic_model.custom_labels_ is not None and custom_labels:
+            if isinstance(custom_labels, str):
+                fst_name = f"{fst_topic[0]}_" + "_".join(list(zip(*topic_model.topic_aspects_[custom_labels][fst_topic[0]]))[0][:3])
+            elif topic_model.custom_labels_ is not None and custom_labels:
                 fst_name = topic_model.custom_labels_[fst_topic[0] + topic_model._outliers]
             else:
                 fst_name = "_".join([word for word, _ in topic_model.get_topic(fst_topic[0])][:5])
@@ -266,7 +289,9 @@ def _get_annotations(topic_model,
                     fst_name = df.loc[df.Parent_ID == key, "Parent_Name"].values[0]
 
         if len(scnd_topic) == 1:
-            if topic_model.custom_labels_ is not None and custom_labels:
+            if isinstance(custom_labels, str):
+                scnd_name = f"{scnd_topic[0]}_" + "_".join(list(zip(*topic_model.topic_aspects_[custom_labels][scnd_topic[0]]))[0][:3])
+            elif topic_model.custom_labels_ is not None and custom_labels:
                 scnd_name = topic_model.custom_labels_[scnd_topic[0] + topic_model._outliers]
             else:
                 scnd_name = "_".join([word for word, _ in topic_model.get_topic(scnd_topic[0])][:5])

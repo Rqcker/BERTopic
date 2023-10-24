@@ -32,8 +32,20 @@ sentence_model = SentenceTransformer("all-MiniLM-L6-v2")
 topic_model = BERTopic(embedding_model=sentence_model)
 ```
 
-!!! tip "Tip!"
+!!! tip "Tip 1!"
     This embedding back-end was put here first for a reason, sentence-transformers works amazing out of the box! Playing around with different models can give you great results. Also, make sure to frequently visit [this](https://www.sbert.net/docs/pretrained_models.html) page as new models are often released. 
+
+!!! tip "Tip 2!"
+    New embedding models are released frequently and their performance keeps getting better. To keep track of the best embedding models out there, you can visit the [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard). It is an excellent place for selecting the embedding that works best for you. For example, if you want the best of the best, then the top 5 models might the place to look. 
+
+    Many of these models can be used with `SentenceTransformers` in BERTopic, like so:
+
+    ```python
+    from sentence_transformers import SentenceTransformer
+
+    embedding_model = SentenceTransformer("BAAI/bge-base-en-v1.5")
+    topic_model = BERTopic(embedding_model=embedding_model)
+    ```
 
 ### 🤗 Hugging Face Transformers
 To use a Hugging Face transformers model, load in a pipeline and point 
@@ -188,6 +200,40 @@ embedding_model = OpenAIBackend("text-embedding-ada-002")
 
 topic_model = BERTopic(embedding_model=embedding_model)
 ```
+
+
+### Cohere
+To use Cohere's external API, we need to define our key and explicitly call `bertopic.backend.CohereBackend`
+to be used in our topic model:
+
+```python
+import cohere
+from bertopic.backend import CohereBackend
+
+client = cohere.Client("MY_API_KEY")
+embedding_model = CohereBackend(client)
+
+topic_model = BERTopic(embedding_model=embedding_model)
+```
+
+### Multimodal
+To create embeddings for both text and images in the same vector space, we can use the `MultiModalBackend`. 
+This model uses a clip-vit based model that is capable of embedding text, images, or both:
+
+```python
+from bertopic.backend import MultiModalBackend
+model = MultiModalBackend('clip-ViT-B-32', batch_size=32)
+
+# Embed documents only
+doc_embeddings = model.embed_documents(docs)
+
+# Embeding images only
+image_embeddings = model.embed_images(images)
+
+# Embed both images and documents, then average them
+doc_image_embeddings = model.embed(docs, images)
+```
+
 
 ### **Custom Backend**
 If your backend or model cannot be found in the ones currently available, you can use the `bertopic.backend.BaseEmbedder` class to 
